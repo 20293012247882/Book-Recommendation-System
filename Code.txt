@@ -1,0 +1,125 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, classification_report
+import seaborn as sns
+from sklearn.metrics.pairwise import linear_kernel
+import requests
+from PIL import Image
+from io import BytesIO
+
+# Load the dataset
+from google.colab import drive
+drive.mount('/content/drive')
+books_df = pd.read_csv("/content/drive/MyDrive/books_1.Best_Books_Ever.csv")
+print(books_df.head())
+
+books_df.dropna(inplace=True)
+
+# Top 10 Publishers
+custom_palette = sns.color_palette("pastel", 10)
+custom_palette = sns.light_palette("purple", reverse=True, n_colors=10)
+top_publishers = books_df['publisher'].value_counts().nlargest(10)
+plt.figure(figsize=(12, 6))
+top_publishers.plot(kind='bar', color=custom_palette)
+plt.title('Top 10 Publishers')
+plt.xlabel('Publisher')
+plt.ylabel('Number of Books')
+plt.xticks(rotation=45, ha='right')
+plt.show()
+
+# Top 10 Books
+custom_palette = sns.color_palette("pastel", 10)
+custom_palette = sns.light_palette("lightblue", reverse=True, n_colors=10)
+top_books = books_df['title'].value_counts().nlargest(10)
+plt.figure(figsize=(12, 6))
+top_books.plot(kind='bar', color=custom_palette)
+plt.title('Top 10 Books')
+plt.xlabel('Book Title')
+plt.ylabel('Number of Ratings')
+plt.xticks(rotation=45, ha='right')
+plt.show()
+
+# Top 10 Authors
+custom_palette = sns.color_palette("pastel", 10)
+custom_palette = sns.light_palette("darkgreen", reverse=True, n_colors=10)
+top_authors = books_df['author'].value_counts().nlargest(10)
+plt.figure(figsize=(12, 6))
+top_authors.plot(kind='bar', color=custom_palette)
+plt.title('Top 10 Authors')
+plt.xlabel('Author')
+plt.ylabel('Number of Books')
+plt.xticks(rotation=45, ha='right')
+plt.show()
+
+#Correlation Heatmap
+plt.figure(figsize=(12, 8))
+sns.heatmap(books_df.corr(), annot=True, cmap=sns.light_palette("purple", as_cmap=True))
+plt.title('Correlation Heatmap')
+plt.show()
+
+def recommend_books_by_genre(genre, num_recommendations=5):
+    # Filter the dataset to get books with the specified genre
+    similar_books = books_df[books_df['genres'].str.lower().str.contains(genre.lower())]
+
+    if similar_books.empty:
+        print("Sorry, no books found with the specified genre.")
+        return
+
+    # Use TF-IDF to vectorize book descriptions
+    tfidf_vectorizer = TfidfVectorizer(stop_words='english')
+    tfidf_matrix = tfidf_vectorizer.fit_transform(similar_books['description'])
+
+    # Compute cosine similarity between all books
+    cosine_similarities = linear_kernel(tfidf_matrix, tfidf_matrix)
+
+    # Get indices of books with highest similarity
+    similar_books_indices = cosine_similarities.argsort()[-num_recommendations-1:-1][::-1]
+
+    # Display recommended books with descriptions
+    print("\nRecommended Books:")
+    print("-----------------------------------------------------------------------------------------------------")
+    for idx in similar_books_indices:
+        recommended_book = similar_books.iloc[idx]
+        print(f"Title: {recommended_book['title']}")
+        print(f"Author: {recommended_book['author']}")
+        print(f"Rating: {recommended_book['rating']}")
+        print(f"Description: {recommended_book['description']}")
+        print("\n")
+
+recommend_books_by_genre('classics')
+
+# Extract features (TF-IDF vectors)
+tfidf_vectorizer = TfidfVectorizer(stop_words='english')
+X = tfidf_vectorizer.fit_transform(books_df['description'])
+y = books_df['genres']
+
+# Split data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Train Random Forest model
+rf_model = RandomForestClassifier(n_estimators=100, random_state=42)
+rf_model.fit(X_train, y_train)
+rf_predictions = rf_model.predict(X_test)
+rf_accuracy = accuracy_score(y_test, rf_predictions)
+print("Random Forest Accuracy:", rf_accuracy)
+
+# Train Naive Bayes model
+nb_model = MultinomialNB()
+nb_model.fit(X_train, y_train)
+nb_predictions = nb_model.predict(X_test)
+nb_accuracy = accuracy_score(y_test, nb_predictions)
+print("Naive Bayes Accuracy:", nb_accuracy)
+
+# Train SVM model
+svm_model = SVC(kernel='linear')
+svm_model.fit(X_train, y_train)
+svm_predictions = svm_model.predict(X_test)
+svm_accuracy = accuracy_score(y_test, svm_predictions)
+print("SVM Accuracy:", svm_accuracy)
+
